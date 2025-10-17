@@ -4,6 +4,7 @@ import bcrypt from "bcrypt";
 import { Client } from "./index.js";
 import jwt from "jsonwebtoken";
 import { JWT_SECRET } from "./config.js";
+import { middleware } from "./middleware.js";
 
 const app = express();
 
@@ -90,6 +91,9 @@ app.post("/login",async (req,res)=>{
       
 })
 
+app.post("/posts",middleware,(req,res)=>{
+
+})
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
