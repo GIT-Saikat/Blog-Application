@@ -1,15 +1,21 @@
 import express from "express";
-import { SigninSchem, UserSchema } from "./types/types.js";
+import { createPostSchema, SigninSchem, updatePostSchema, UserSchema, } from "./types/types.js";
 import bcrypt from "bcrypt";
 import { Client } from "./index.js";
+import jwt from "jsonwebtoken";
+import { JWT_SECRET } from "./config.js";
+import { middleware } from "./middleware.js";
+import { Prisma } from "@prisma/client/extension";
+import postsRouter from "./routes/posts.js";
+import commentsRouter from "./routes/comments.js";
 const app = express();
 app.use(express.json());
-app.post("/signup", async (req, res) => {
+app.post("/register", async (req, res) => {
     const parsedData = UserSchema.safeParse(req.body);
     if (!parsedData.success) {
         console.log(parsedData.error);
         res.status(422).json({
-            message: "Incorrect input"
+            message: "Incorrect input",
         });
         return;
     }
@@ -19,25 +25,26 @@ app.post("/signup", async (req, res) => {
             data: {
                 username: parsedData.data.username,
                 password: hashedPassword,
-                email: parsedData.data.email
-            }
+                email: parsedData.data.email,
+            },
         });
         res.json({
-            userId: user.id
+            message: "Registration successfull",
+            userId: user.id,
         });
     }
     catch (e) {
         res.status(409).json({
-            message: "User Already exists"
+            message: "User Already exists",
         });
     }
 });
-app.post("/signin", async (req, res) => {
+app.post("/login", async (req, res) => {
     const parsedData = SigninSchem.safeParse(req.body);
     if (!parsedData.success) {
         console.log(parsedData.error);
         res.status(422).json({
-            message: "Invalid Input"
+            message: "Invalid Input",
         });
         return;
     }
@@ -45,33 +52,41 @@ app.post("/signin", async (req, res) => {
     if (parsedData.data.username) {
         user = await Client.user.findUnique({
             where: {
-                username: parsedData.data.username
-            }
+                username: parsedData.data.username,
+            },
         });
-        console.log(typeof (user));
+        console.log(typeof user);
         console.log(user);
     }
     else if (parsedData.data.email) {
         user = await Client.user.findUnique({
             where: {
-                email: parsedData.data.email
-            }
+                email: parsedData.data.email,
+            },
         });
     }
     if (!user) {
         res.status(404).json({
-            message: "Not Authorized"
+            message: "Not Authorized",
         });
         return;
     }
     const isPassword = await bcrypt.compare(parsedData.data.password, user.password);
     if (!isPassword) {
         res.status(401).json({
-            message: "Not correct password"
+            message: "Not correct password",
         });
         return;
     }
+    const token = jwt.sign({ userId: user.id }, JWT_SECRET);
+    res.json({
+        message: "Login successful",
+        token: token,
+    });
 });
+// Mount routers for posts and comments
+app.use("/posts", postsRouter);
+app.use("/comments", commentsRouter);
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
     console.log(`Server is running on port ${PORT}`);
