@@ -6,7 +6,8 @@
   "type": "module",
   "scripts": {
     "dev": "tsc -b && node ./dist/backend.js",
-    "test": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js --verbose"
+    "test": "node --experimental-vm-modules ./node_modules/jest/bin/jest.js",
+    "test:watch": "vitest --watch"
   },
   "keywords": [],
   "author": "",

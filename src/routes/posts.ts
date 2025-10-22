@@ -81,6 +81,10 @@ router.get("/", middleware, async (req, res) => {
 
 router.get("/:postId", middleware, async (req, res) => {
   const postId = req.params.postId;
+  if (!postId) {
+    res.status(400).json({ message: "Post ID is required" });
+    return;
+  }
   try {
     const post = await Client.post.findUnique({
       where: { id: postId },
@@ -130,6 +134,10 @@ router.get("/:postId", middleware, async (req, res) => {
 
 router.put("/:postId", middleware, async (req, res) => {
   const postId = req.params.postId;
+  if (!postId) {
+    res.status(400).json({ message: "Post ID is required" });
+    return;
+  }
   const parsedData = updatePostSchema.safeParse(req.body);
   if (!parsedData.success) {
     res.status(400).json({
@@ -197,6 +205,10 @@ router.put("/:postId", middleware, async (req, res) => {
 
 router.delete("/:postId", middleware, async (req, res) => {
   const postId = req.params.postId;
+  if (!postId) {
+    res.status(400).json({ message: "Post ID is required" });
+    return;
+  }
   try {
     const postDelete = await Client.post.findUnique({
       where: {
