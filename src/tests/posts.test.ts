@@ -8,23 +8,18 @@ import express, {
 } from "express";
 import { jest } from "@jest/globals";
 
-// --- Type Definitions for Mocks and Data Structures ---
-
-/** Represents a standard Author object included in relations. */
 interface Author {
   id: string;
   username: string;
   email: string;
 }
 
-/** Represents a standard Comment object included in post relations. */
 interface Comment {
   id: string;
   content: string;
   author: Author;
 }
 
-/** Represents the Post data structure returned from Prisma, potentially with relations. */
 interface Post {
   id: string;
   title: string;
@@ -36,46 +31,38 @@ interface Post {
   comments?: Comment[];
 }
 
-/** Custom Request interface extending Express Request to include the userId set by middleware. */
 interface AuthRequest extends Request {
   userId?: string;
 }
 
-/** Represents the validated data for creating a post. */
 interface CreatePostData {
   title: string;
   content: string;
 }
 
-/** Represents the validated data for updating a post (optional fields). */
 interface UpdatePostData {
   title?: string;
   content?: string;
 }
 
-/** Utility type for the mocked Schema safeParse return value. */
 interface ParseResult<T> {
   success: boolean;
   data?: T;
   error?: { issues: any[] };
 }
 
-// --- Mock Implementations ---
-
-// Mock Prisma Client with strong type casting
 const mockPrismaClient = {
   post: {
-    // create expects data and returns a Post
     create:
       jest.fn<
         (args: {
           data: { author_id: string; title: string; content: string };
         }) => Promise<Post>
       >(),
-    // findMany returns an array of Posts; accept optional query args
+
     findMany:
       jest.fn<(args?: { include?: any; orderBy?: any }) => Promise<Post[]>>(),
-    // findUnique returns a single Post or null; accept include/select params
+
     findUnique:
       jest.fn<
         (args: {
@@ -84,7 +71,7 @@ const mockPrismaClient = {
           select?: any;
         }) => Promise<Post | { author_id: string } | null>
       >(),
-    // update returns the updated Post
+
     update:
       jest.fn<
         (args: {
@@ -93,12 +80,11 @@ const mockPrismaClient = {
           include?: any;
         }) => Promise<Post>
       >(),
-    // delete returns the deleted record (or a simple object)
+
     delete: jest.fn<(args: { where: { id: string } }) => Promise<any>>(),
   },
 };
 
-// Mock Post Schema validation
 const mockCreatePostSchema = {
   safeParse: jest.fn<(data: any) => ParseResult<CreatePostData>>(),
 };
@@ -107,21 +93,15 @@ const mockUpdatePostSchema = {
   safeParse: jest.fn<(data: any) => ParseResult<UpdatePostData>>(),
 };
 
-// --- Test Router Setup ---
-
-/** Creates a test Express router that simulates the posts router behavior. */
 function createTestRouter(): Router {
   const router = express.Router();
 
-  // Mock authentication middleware
   const middleware = (req: AuthRequest, res: Response, next: NextFunction) => {
-    // Attaches the mock user ID to the request object
     req.userId = "test-user-id";
     next();
   };
 
-  // POST / - Create a post
-  router.post("/", middleware, async (req: AuthRequest, res: Response) => {
+  router.post("/posts", middleware, async (req: AuthRequest, res: Response) => {
     const parsedData: ParseResult<CreatePostData> =
       mockCreatePostSchema.safeParse(req.body);
 
@@ -146,8 +126,7 @@ function createTestRouter(): Router {
     }
   });
 
-  // GET / - Get all posts
-  router.get("/", middleware, async (req: AuthRequest, res: Response) => {
+  router.get("/posts", middleware, async (req: AuthRequest, res: Response) => {
     try {
       const allPosts = await mockPrismaClient.post.findMany({
         include: {
@@ -180,9 +159,8 @@ function createTestRouter(): Router {
     }
   });
 
-  // GET /:postId - Get a single post
   router.get(
-    "/:postId",
+    "/posts/:postId",
     middleware,
     async (req: AuthRequest, res: Response) => {
       const postId = req.params.postId;
@@ -205,7 +183,7 @@ function createTestRouter(): Router {
               orderBy: { created_at: "desc" },
             },
           },
-        })) as Post | null; // Cast to Post | null since the mock returns Post
+        })) as Post | null;
 
         if (!post) {
           return res.status(404).json({ message: "Post not found" });
@@ -216,18 +194,15 @@ function createTestRouter(): Router {
           post,
         });
       } catch (e) {
-        res
-          .status(500)
-          .json({
-            message: "Error from server, not able to get the single post",
-          });
+        res.status(500).json({
+          message: "Error from server, not able to get the single post",
+        });
       }
     }
   );
 
-  // PUT /:postId - Update a post
   router.put(
-    "/:postId",
+    "/posts/:postId",
     middleware,
     async (req: AuthRequest, res: Response) => {
       const postId = req.params.postId;
@@ -241,7 +216,6 @@ function createTestRouter(): Router {
       }
 
       try {
-        // Find the post and select only the author_id to check ownership
         const postUpdate = (await mockPrismaClient.post.findUnique({
           where: { id: postId },
           select: { author_id: true },
@@ -280,9 +254,8 @@ function createTestRouter(): Router {
     }
   );
 
-  // DELETE /:postId - Delete a post
   router.delete(
-    "/:postId",
+    "/posts/:postId",
     middleware,
     async (req: AuthRequest, res: Response) => {
       const postId = req.params.postId;
@@ -290,7 +263,6 @@ function createTestRouter(): Router {
         return res.status(400).json({ message: "Post ID is required" });
       }
       try {
-        // Find the post and select only the author_id to check ownership
         const postDelete = (await mockPrismaClient.post.findUnique({
           where: { id: postId },
           select: { author_id: true },
@@ -320,18 +292,14 @@ function createTestRouter(): Router {
 
 const postsRouter = createTestRouter();
 
-// --- Jest Test Suite ---
-
 describe("Posts API Tests", () => {
   let app: Express;
 
   beforeEach(() => {
     app = express();
     app.use(express.json());
-    // Mount the test router under /api/posts
-    app.use("/api/posts", postsRouter);
+    app.use("/api", postsRouter);
 
-    // Reset all mocks before each test
     jest.clearAllMocks();
   });
 
@@ -453,7 +421,7 @@ describe("Posts API Tests", () => {
       expect(response.status).toBe(200);
       expect(response.body.message).toBe("Got all posts");
       expect(response.body.allPosts).toHaveLength(2);
-      expect(mockPrismaClient.post.findMany).toHaveBeenCalled(); // Checking call, full argument check is verbose but present in router
+      expect(mockPrismaClient.post.findMany).toHaveBeenCalled();
     });
 
     it("should return 500 when database error occurs", async () => {

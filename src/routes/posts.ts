@@ -5,20 +5,25 @@ import { middleware } from "../middleware.js";
 
 const router = express.Router();
 
-router.post("/", middleware, async (req, res) => {
+router.post("/posts", middleware, async (req, res) => {
   const parsedData = createPostSchema.safeParse(req.body);
   if (!parsedData.success) {
     res.status(400).json({
-      message: "Validationn Failed",
+      message: "Validation Failed",
     });
     return;
   }
+  if (!req.userId) {
+    res.status(401).json({ message: "Unauthorized" });
+    return;
+  }
+
   try {
     const createPost = await Client.post.create({
       data: {
-        author_id: req.userId as string | undefined,
         title: parsedData.data.title,
         content: parsedData.data.content,
+        author: { connect: { id: req.userId as string } },
       },
     });
     res.json({
@@ -33,7 +38,7 @@ router.post("/", middleware, async (req, res) => {
   }
 });
 
-router.get("/", middleware, async (req, res) => {
+router.get("/posts", middleware, async (req, res) => {
   try {
     const allPosts = await Client.post.findMany({
       include: {

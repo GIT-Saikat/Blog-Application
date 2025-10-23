@@ -1,41 +1,28 @@
 import request from "supertest";
 import express, { Router, } from "express";
 import { jest } from "@jest/globals";
-// --- Mock Implementations ---
-// Mock Prisma Client with strong type casting
 const mockPrismaClient = {
     post: {
-        // create expects data and returns a Post
         create: jest.fn(),
-        // findMany returns an array of Posts; accept optional query args
         findMany: jest.fn(),
-        // findUnique returns a single Post or null; accept include/select params
         findUnique: jest.fn(),
-        // update returns the updated Post
         update: jest.fn(),
-        // delete returns the deleted record (or a simple object)
         delete: jest.fn(),
     },
 };
-// Mock Post Schema validation
 const mockCreatePostSchema = {
     safeParse: jest.fn(),
 };
 const mockUpdatePostSchema = {
     safeParse: jest.fn(),
 };
-// --- Test Router Setup ---
-/** Creates a test Express router that simulates the posts router behavior. */
 function createTestRouter() {
     const router = express.Router();
-    // Mock authentication middleware
     const middleware = (req, res, next) => {
-        // Attaches the mock user ID to the request object
         req.userId = "test-user-id";
         next();
     };
-    // POST / - Create a post
-    router.post("/", middleware, async (req, res) => {
+    router.post("/posts", middleware, async (req, res) => {
         const parsedData = mockCreatePostSchema.safeParse(req.body);
         if (!parsedData.success || !req.userId || !parsedData.data) {
             return res.status(400).json({ message: "Validationn Failed" });
@@ -57,8 +44,7 @@ function createTestRouter() {
             res.status(500).json({ message: "Unable to create Post" });
         }
     });
-    // GET / - Get all posts
-    router.get("/", middleware, async (req, res) => {
+    router.get("/posts", middleware, async (req, res) => {
         try {
             const allPosts = await mockPrismaClient.post.findMany({
                 include: {
@@ -89,8 +75,7 @@ function createTestRouter() {
                 .json({ message: "Error from server, not able to get post" });
         }
     });
-    // GET /:postId - Get a single post
-    router.get("/:postId", middleware, async (req, res) => {
+    router.get("/posts/:postId", middleware, async (req, res) => {
         const postId = req.params.postId;
         if (!postId) {
             return res.status(400).json({ message: "Post ID is required" });
@@ -111,7 +96,7 @@ function createTestRouter() {
                         orderBy: { created_at: "desc" },
                     },
                 },
-            })); // Cast to Post | null since the mock returns Post
+            }));
             if (!post) {
                 return res.status(404).json({ message: "Post not found" });
             }
@@ -121,15 +106,12 @@ function createTestRouter() {
             });
         }
         catch (e) {
-            res
-                .status(500)
-                .json({
+            res.status(500).json({
                 message: "Error from server, not able to get the single post",
             });
         }
     });
-    // PUT /:postId - Update a post
-    router.put("/:postId", middleware, async (req, res) => {
+    router.put("/posts/:postId", middleware, async (req, res) => {
         const postId = req.params.postId;
         if (!postId) {
             return res.status(400).json({ message: "Post ID is required" });
@@ -139,7 +121,6 @@ function createTestRouter() {
             return res.status(400).json({ message: "Incorrect input" });
         }
         try {
-            // Find the post and select only the author_id to check ownership
             const postUpdate = (await mockPrismaClient.post.findUnique({
                 where: { id: postId },
                 select: { author_id: true },
@@ -173,14 +154,12 @@ function createTestRouter() {
             res.status(500).json({ message: "Server error" });
         }
     });
-    // DELETE /:postId - Delete a post
-    router.delete("/:postId", middleware, async (req, res) => {
+    router.delete("/posts/:postId", middleware, async (req, res) => {
         const postId = req.params.postId;
         if (!postId) {
             return res.status(400).json({ message: "Post ID is required" });
         }
         try {
-            // Find the post and select only the author_id to check ownership
             const postDelete = (await mockPrismaClient.post.findUnique({
                 where: { id: postId },
                 select: { author_id: true },
@@ -203,15 +182,12 @@ function createTestRouter() {
     return router;
 }
 const postsRouter = createTestRouter();
-// --- Jest Test Suite ---
 describe("Posts API Tests", () => {
     let app;
     beforeEach(() => {
         app = express();
         app.use(express.json());
-        // Mount the test router under /api/posts
-        app.use("/api/posts", postsRouter);
-        // Reset all mocks before each test
+        app.use("/api", postsRouter);
         jest.clearAllMocks();
     });
     describe("POST /api/posts", () => {
@@ -315,7 +291,7 @@ describe("Posts API Tests", () => {
             expect(response.status).toBe(200);
             expect(response.body.message).toBe("Got all posts");
             expect(response.body.allPosts).toHaveLength(2);
-            expect(mockPrismaClient.post.findMany).toHaveBeenCalled(); // Checking call, full argument check is verbose but present in router
+            expect(mockPrismaClient.post.findMany).toHaveBeenCalled();
         });
         it("should return 500 when database error occurs", async () => {
             mockPrismaClient.post.findMany.mockRejectedValue(new Error("Database error"));

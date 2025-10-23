@@ -8,9 +8,6 @@ import express, {
 } from "express";
 import { jest } from "@jest/globals";
 
-// --- External Mock Implementations (Typing required for integration) ---
-
-// Use dynamic imports to prevent issues with jest/globals environment
 const bcrypt: any = {
   hash: jest.fn(),
   compare: jest.fn(),
@@ -20,8 +17,6 @@ const jwt: any = {
   sign: jest.fn(),
   verify: jest.fn(),
 };
-
-// --- Type Definitions for Data Structures and Request Objects ---
 
 interface Author {
   id: string;
@@ -78,19 +73,16 @@ interface UpdatePostData {
   content?: string;
 }
 
-/** Utility type for the mocked Schema safeParse return value. */
 interface ParseResult<T> {
   success: boolean;
   data?: T;
   error?: { issues: any[] };
 }
 
-/** Custom Request interface extending Express Request to include the userId set by middleware. */
 interface AuthRequest extends Request {
   userId?: string;
 }
 
-// --- Mock Prisma Client (Consolidated) ---
 
 const mockPrismaClient: any = {
   user: {
@@ -113,7 +105,6 @@ const mockPrismaClient: any = {
   },
 };
 
-// --- Mock Validation Schemas ---
 const mockUserSchema = {
   safeParse: jest.fn<(data: any) => ParseResult<RegisterData>>(),
 };
@@ -132,18 +123,14 @@ const mockCommentSchema = {
 
 const JWT_SECRET = "test-secret-key";
 
-// --- Integrated App Setup ---
-
-/** Creates the full integrated Express application with all mocked routes. */
 function createIntegratedApp(): Express {
   const app = express();
   app.use(express.json());
 
-  // Middleware for authentication check
   const middleware = (req: AuthRequest, res: Response, next: NextFunction) => {
     const token = (req.headers["authorization"] as string) || "";
     try {
-      // Cast the return value of verify to the expected payload shape
+
       const decoded = jwt.verify(token, JWT_SECRET) as { userId: string };
       req.userId = decoded.userId;
       next();
@@ -152,7 +139,6 @@ function createIntegratedApp(): Express {
     }
   };
 
-  // --- Authentication Routes ---
   app.post("/register", async (req: AuthRequest, res: Response) => {
     const parsedData: ParseResult<RegisterData> = mockUserSchema.safeParse(
       req.body
@@ -204,7 +190,6 @@ function createIntegratedApp(): Express {
     res.json({ message: "Login successful", token: token });
   });
 
-  // --- Posts Routes ---
   app.post("/posts", middleware, async (req: AuthRequest, res: Response) => {
     const parsedData: ParseResult<CreatePostData> =
       mockCreatePostSchema.safeParse(req.body);
@@ -227,7 +212,6 @@ function createIntegratedApp(): Express {
 
   app.get("/posts", middleware, async (req: AuthRequest, res: Response) => {
     try {
-      // Cast is necessary as the mock's return type needs to be asserted for the endpoint
       const allPosts = (await mockPrismaClient.post.findMany({})) as Post[];
       res.status(200).json({ message: "Got all posts", allPosts: allPosts });
     } catch (e) {
@@ -243,7 +227,7 @@ function createIntegratedApp(): Express {
     async (req: AuthRequest, res: Response) => {
       const postId = req.params.postId;
       try {
-        // Cast the return to ensure correct type access (Post with relations)
+
         const post = (await mockPrismaClient.post.findUnique({
           where: { id: postId },
         })) as Post | null;
@@ -262,7 +246,6 @@ function createIntegratedApp(): Express {
     }
   );
 
-  // --- Comments Routes ---
   app.post("/comments", middleware, async (req: AuthRequest, res: Response) => {
     const parsedData: ParseResult<CommentData> = mockCommentSchema.safeParse(
       req.body
@@ -296,7 +279,6 @@ function createIntegratedApp(): Express {
     middleware,
     async (req: AuthRequest, res: Response) => {
       try {
-        // Cast the return to ensure correct array type
         const comments = (await mockPrismaClient.comment.findMany({
           where: { post_id: req.params.postId },
           include: {
@@ -314,7 +296,6 @@ function createIntegratedApp(): Express {
   return app;
 }
 
-// --- Jest Test Suite ---
 
 describe("Integration Tests", () => {
   let app: Express;
@@ -322,14 +303,14 @@ describe("Integration Tests", () => {
 
   beforeEach(() => {
     app = createIntegratedApp();
-    // Use jest.clearAllMocks() to reset all mock function calls and return values
+
     jest.clearAllMocks();
     authToken = null;
   });
 
   describe("Complete User Flow: Register -> Login -> Create Post -> Comment", () => {
     it("should complete full user journey successfully", async () => {
-      // --- Step 1: Register a new user ---
+
       const mockUser: User = {
         id: "user-123",
         username: "testuser",
@@ -346,7 +327,7 @@ describe("Integration Tests", () => {
         },
       });
 
-      // Re-mocking bcrypt and Prisma for the initial flow
+      
       (bcrypt.hash as any).mockResolvedValue("hashed-password");
       (mockPrismaClient.user.create as any).mockResolvedValue(mockUser);
 
@@ -360,7 +341,6 @@ describe("Integration Tests", () => {
 
       expect(registerResponse.status).toBe(200);
 
-      // --- Step 2: Login with the registered user ---
       mockSigninSchema.safeParse.mockReturnValue({
         success: true,
         data: { username: "testuser", password: "password123" },
@@ -378,7 +358,6 @@ describe("Integration Tests", () => {
       authToken = loginResponse.body.token;
       expect(authToken).toBe("valid-jwt-token");
 
-      // --- Step 3: Create a post with authenticated user ---
       const mockPost: Post = {
         id: "post-456",
         title: "My First Post",
@@ -410,7 +389,6 @@ describe("Integration Tests", () => {
       expect(createPostResponse.status).toBe(200);
       expect(createPostResponse.body.postId).toBe("post-456");
 
-      // --- Step 4: Add a comment to the post ---
       const mockComment: Comment = {
         id: "comment-789",
         post_id: "post-456",
@@ -435,7 +413,6 @@ describe("Integration Tests", () => {
       expect(createCommentResponse.status).toBe(201);
       expect(createCommentResponse.body.commentId).toBe("comment-789");
 
-      // Verify all interactions happened in order
       expect(mockPrismaClient.user.create).toHaveBeenCalledTimes(1);
       expect(mockPrismaClient.user.findUnique).toHaveBeenCalledTimes(1);
       expect(mockPrismaClient.post.create).toHaveBeenCalledTimes(1);
@@ -443,7 +420,6 @@ describe("Integration Tests", () => {
     });
 
     it("should retrieve post with comments after creation", async () => {
-      // Setup authenticated user
       (jwt.verify as jest.Mock).mockReturnValue({ userId: "user-123" });
       authToken = "valid-jwt-token";
 
@@ -538,7 +514,6 @@ describe("Integration Tests", () => {
 
   describe("Error Propagation Across Components", () => {
     it("should handle database errors during post creation after successful login", async () => {
-      // Successful login mock setup
       mockSigninSchema.safeParse.mockReturnValue({
         success: true,
         data: { username: "testuser", password: "password123" },
@@ -557,7 +532,7 @@ describe("Integration Tests", () => {
         .post("/login")
         .send({ username: "testuser", password: "password123" });
 
-      // Database error during post creation
+
       (jwt.verify as jest.Mock).mockReturnValue({ userId: "user-123" });
       mockCreatePostSchema.safeParse.mockReturnValue({
         success: true,

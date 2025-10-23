@@ -1,6 +1,5 @@
 import dotenv from "dotenv";
 
-// Load .env in development. In production, set environment variables in the host.
 dotenv.config();
 
 const secret = process.env.JWT_SECRET;

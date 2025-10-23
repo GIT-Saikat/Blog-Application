@@ -2,51 +2,44 @@ import request from "supertest";
 import express, { type Express, type Request, type Response } from "express";
 import { jest } from "@jest/globals";
 
-// --- Type Definitions for Mocks and Data Structures ---
-
-/** Represents the data structure of a User in the mocked database/Prisma. */
 interface User {
   id: string;
   username: string;
   email: string;
-  password: string; // Hashed password
+  password: string; 
 }
 
-/** Represents the validated data from the registration schema. */
 interface RegisterData {
   username: string;
   email: string;
   password: string;
 }
 
-/** Represents the validated data from the sign-in schema. */
+
 interface SigninData {
   username?: string;
   email?: string;
   password: string;
 }
 
-/** Utility type for the mocked Zod/Schema safeParse return value. */
 interface ParseResult<T> {
   success: boolean;
   data?: T;
   error?: { issues: any[] };
 }
 
-// --- Mock Implementations ---
 
-// Mock bcrypt with strong type casting for async methods
 const bcrypt = {
   hash: jest.fn<(data: string, salt: number) => Promise<string>>(),
   compare: jest.fn<(data: string, encrypted: string) => Promise<boolean>>(),
 };
 
-// Mock jsonwebtoken with strong type casting
+
 const jwt = {
   sign: jest.fn<(payload: object, secret: string, options: object) => string>(),
 };
 
-// Mock Prisma Client with strong type casting for mock DB operations
+
 const mockPrismaClient = {
   user: {
     create:
@@ -62,7 +55,7 @@ const mockPrismaClient = {
   },
 };
 
-// Mock User Schema validation (e.g., Zod)
+
 const mockUserSchema = {
   safeParse: jest.fn<(data: any) => ParseResult<RegisterData>>(),
 };
@@ -71,19 +64,13 @@ const mockSigninSchema = {
   safeParse: jest.fn<(data: any) => ParseResult<SigninData>>(),
 };
 
-// Mock JWT_SECRET
 const JWT_SECRET = "test-secret-key";
 
-// --- Test Application Setup ---
-
-/** Creates a test Express application with mocked routes. */
 function createTestApp(): Express {
   const app = express();
   app.use(express.json());
 
-  // POST /register - User registration
   app.post("/register", async (req: Request, res: Response) => {
-    // Type the parsedData result correctly
     const parsedData: ParseResult<RegisterData> = mockUserSchema.safeParse(
       req.body
     );
@@ -109,14 +96,12 @@ function createTestApp(): Express {
         userId: user.id,
       });
     } catch (e) {
-      // Assuming a unique constraint error
       res.status(409).json({ message: "User Already exists" });
     }
   });
 
-  // POST /login - User login
   app.post("/login", async (req: Request, res: Response) => {
-    // Type the parsedData result correctly
+
     const parsedData: ParseResult<SigninData> = mockSigninSchema.safeParse(
       req.body
     );
@@ -129,7 +114,6 @@ function createTestApp(): Express {
 
     let user: User | null = null;
 
-    // Use type narrowing to determine the find criteria
     if (username) {
       user = await mockPrismaClient.user.findUnique({
         where: { username },
@@ -162,7 +146,6 @@ function createTestApp(): Express {
   return app;
 }
 
-// --- Test Suite ---
 
 describe("Backend API Tests", () => {
   let app: Express;
@@ -170,7 +153,7 @@ describe("Backend API Tests", () => {
   beforeEach(() => {
     app = createTestApp();
 
-    // Reset all mocks before each test
+  
     jest.clearAllMocks();
   });
 
@@ -245,7 +228,7 @@ describe("Backend API Tests", () => {
       });
 
       bcrypt.hash.mockResolvedValue("hashed-password");
-      // Mocking the Prisma error case
+
       mockPrismaClient.user.create.mockRejectedValue(
         new Error("Unique constraint failed")
       );

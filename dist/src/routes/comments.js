@@ -3,7 +3,6 @@ import { CommentSchema } from "../types/types.js";
 import { Client } from "../index.js";
 import { middleware } from "../middleware.js";
 const router = express.Router();
-// Create a comment for a post
 router.post("/comments", middleware, async (req, res) => {
     const parsedData = CommentSchema.safeParse(req.body);
     if (!parsedData.success) {
@@ -72,7 +71,6 @@ router.get("/comments", middleware, async (req, res) => {
         });
     }
 });
-// Get comments for a post
 router.get("/post/:postId", middleware, async (req, res) => {
     const postId = req.params.postId;
     try {
@@ -92,7 +90,6 @@ router.get("/post/:postId", middleware, async (req, res) => {
         res.status(500).json({ message: "Unable to fetch comments" });
     }
 });
-// Update a comment
 router.put("/comments/:commentId", middleware, async (req, res) => {
     const commentId = req.params.commentId;
     const parsedData = CommentSchema.safeParse(req.body);
@@ -120,7 +117,6 @@ router.put("/comments/:commentId", middleware, async (req, res) => {
         res.status(500).json({ message: "Unable to update comment" });
     }
 });
-// Delete a comment
 router.delete("/comments/:commentId", middleware, async (req, res) => {
     const commentId = req.params.commentId;
     try {

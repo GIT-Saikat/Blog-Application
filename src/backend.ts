@@ -1,16 +1,12 @@
 import express from "express";
 import {
-  createPostSchema,
   SigninSchem,
-  updatePostSchema,
   UserSchema,
 } from "./types/types.js";
 import bcrypt from "bcrypt";
 import { Client } from "./index.js";
 import jwt from "jsonwebtoken";
 import { JWT_SECRET } from "./config.js";
-import { middleware } from "./middleware.js";
-import { Prisma } from "@prisma/client/extension";
 import postsRouter from "./routes/posts.js";
 import commentsRouter from "./routes/comments.js";
 
@@ -100,7 +96,7 @@ app.post("/login", async (req, res) => {
   });
 });
 
-// Mount routers for posts and comments
+
 app.use("/posts", postsRouter);
 app.use("/comments", commentsRouter);
 

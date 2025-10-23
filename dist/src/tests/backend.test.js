@@ -1,40 +1,30 @@
 import request from "supertest";
 import express, {} from "express";
 import { jest } from "@jest/globals";
-// --- Mock Implementations ---
-// Mock bcrypt with strong type casting for async methods
 const bcrypt = {
     hash: jest.fn(),
     compare: jest.fn(),
 };
-// Mock jsonwebtoken with strong type casting
 const jwt = {
     sign: jest.fn(),
 };
-// Mock Prisma Client with strong type casting for mock DB operations
 const mockPrismaClient = {
     user: {
         create: jest.fn(),
         findUnique: jest.fn(),
     },
 };
-// Mock User Schema validation (e.g., Zod)
 const mockUserSchema = {
     safeParse: jest.fn(),
 };
 const mockSigninSchema = {
     safeParse: jest.fn(),
 };
-// Mock JWT_SECRET
 const JWT_SECRET = "test-secret-key";
-// --- Test Application Setup ---
-/** Creates a test Express application with mocked routes. */
 function createTestApp() {
     const app = express();
     app.use(express.json());
-    // POST /register - User registration
     app.post("/register", async (req, res) => {
-        // Type the parsedData result correctly
         const parsedData = mockUserSchema.safeParse(req.body);
         if (!parsedData.success || !parsedData.data) {
             return res.status(422).json({ message: "Incorrect input" });
@@ -55,20 +45,16 @@ function createTestApp() {
             });
         }
         catch (e) {
-            // Assuming a unique constraint error
             res.status(409).json({ message: "User Already exists" });
         }
     });
-    // POST /login - User login
     app.post("/login", async (req, res) => {
-        // Type the parsedData result correctly
         const parsedData = mockSigninSchema.safeParse(req.body);
         if (!parsedData.success || !parsedData.data) {
             return res.status(422).json({ message: "Invalid Input" });
         }
         const { password, username, email } = parsedData.data;
         let user = null;
-        // Use type narrowing to determine the find criteria
         if (username) {
             user = await mockPrismaClient.user.findUnique({
                 where: { username },
@@ -96,12 +82,10 @@ function createTestApp() {
     });
     return app;
 }
-// --- Test Suite ---
 describe("Backend API Tests", () => {
     let app;
     beforeEach(() => {
         app = createTestApp();
-        // Reset all mocks before each test
         jest.clearAllMocks();
     });
     describe("POST /register", () => {
@@ -166,7 +150,6 @@ describe("Backend API Tests", () => {
                 },
             });
             bcrypt.hash.mockResolvedValue("hashed-password");
-            // Mocking the Prisma error case
             mockPrismaClient.user.create.mockRejectedValue(new Error("Unique constraint failed"));
             const response = await request(app).post("/register").send({
                 username: "existinguser",

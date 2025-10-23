@@ -8,22 +8,17 @@ import express, {
 } from "express";
 import { jest } from "@jest/globals";
 
-// --- Type Definitions for Mocks and Data Structures ---
-
-/** Represents a standard Author object included in relations. */
 interface Author {
   id: string;
   username: string;
-  email?: string; // Email is sometimes included, sometimes not
+  email?: string;
 }
 
-/** Represents the validated data for creating or updating a comment. */
 interface CommentData {
   content: string;
-  post_id?: string; // Only required for POST (creation)
+  post_id?: string;
 }
 
-/** Represents the Comment data structure returned from Prisma. */
 interface Comment {
   id: string;
   post_id: string;
@@ -34,24 +29,18 @@ interface Comment {
   author?: Author;
 }
 
-/** Custom Request interface extending Express Request to include the userId set by middleware. */
 interface AuthRequest extends Request {
   userId?: string;
 }
 
-/** Utility type for the mocked Schema safeParse return value. */
 interface ParseResult<T> {
   success: boolean;
   data?: T;
   error?: { issues: any[] };
 }
 
-// --- Mock Implementations ---
-
-// Mock Prisma Client with strong type casting
 const mockPrismaClient = {
   comment: {
-    // create expects data and returns a Comment
     create:
       jest.fn<
         (args: {
@@ -59,7 +48,6 @@ const mockPrismaClient = {
           include?: any;
         }) => Promise<Comment>
       >(),
-    // findMany returns an array of Comments (or partial comments based on select/include)
     findMany:
       jest.fn<
         (args?: {
@@ -69,7 +57,7 @@ const mockPrismaClient = {
           include?: any;
         }) => Promise<Partial<Comment>[]>
       >(),
-    // findUnique returns a single Comment or null, sometimes with specific selects (like author_id)
+
     findUnique:
       jest.fn<
         (args: {
@@ -77,7 +65,7 @@ const mockPrismaClient = {
           select?: any;
         }) => Promise<{ author_id: string } | null>
       >(),
-    // update returns the updated Comment
+
     update:
       jest.fn<
         (args: {
@@ -85,30 +73,27 @@ const mockPrismaClient = {
           data: { content: string };
         }) => Promise<Comment>
       >(),
-    // delete returns the deleted record (or a simple object)
+    
     delete: jest.fn<(args: { where: { id?: string } }) => Promise<any>>(),
   },
 };
 
-// Mock Comment Schema validation
+
 const mockCommentSchema = {
   safeParse: jest.fn<(data: any) => ParseResult<CommentData>>(),
 };
 
-// --- Test Router Setup ---
-
-/** Creates a test Express router that simulates the comments router behavior. */
 function createTestRouter(): Router {
   const router = express.Router();
 
-  // Mock authentication middleware
+
   const middleware = (req: AuthRequest, res: Response, next: NextFunction) => {
-    // Attaches the mock user ID to the request object
+
     req.userId = "test-user-id";
     next();
   };
 
-  // POST /comments - Create a comment
+
   router.post(
     "/comments",
     middleware,
@@ -121,7 +106,6 @@ function createTestRouter(): Router {
         return res.status(400).json({ message: "Invalid input" });
       }
 
-      // Since post_id is expected in req.body for this route
       const postId: string | undefined = req.body.post_id;
       if (!postId) {
         return res.status(400).json({ message: "postId is required" });
@@ -132,7 +116,6 @@ function createTestRouter(): Router {
       }
 
       try {
-        // Cast is necessary here because the mock is generic but the endpoint expects a full Comment return
         const comment = (await mockPrismaClient.comment.create({
           data: {
             post_id: postId,
@@ -151,14 +134,12 @@ function createTestRouter(): Router {
     }
   );
 
-  // GET /comments - Get all comments
   router.get(
     "/comments",
     middleware,
     async (req: AuthRequest, res: Response) => {
       try {
-        // The findMany select criteria means it returns a partial Comment,
-        // but we use the generic Partial<Comment>[] for the mock return type.
+
         const allComments = await mockPrismaClient.comment.findMany({
           select: {
             author: {
@@ -178,13 +159,11 @@ function createTestRouter(): Router {
     }
   );
 
-  // GET /post/:postId - Get comments for a post
   router.get(
     "/post/:postId",
     middleware,
     async (req: AuthRequest, res: Response) => {
       try {
-        // Cast the mock response to the expected Comment[] array
         const comments = (await mockPrismaClient.comment.findMany({
           where: { post_id: req.params.postId },
           include: {
@@ -202,7 +181,6 @@ function createTestRouter(): Router {
     }
   );
 
-  // PUT /comments/:commentId - Update a comment
   router.put(
     "/comments/:commentId",
     middleware,
@@ -215,7 +193,7 @@ function createTestRouter(): Router {
       }
 
       try {
-        // Find the comment and select only the author_id to check ownership
+        
         const found = await mockPrismaClient.comment.findUnique({
           where: { id: req.params.commentId as string },
           select: { author_id: true },
@@ -227,7 +205,7 @@ function createTestRouter(): Router {
           return res.status(403).json({ message: "Invalid author" });
         }
 
-        // Cast is necessary here because the mock is generic but the endpoint expects a full Comment return
+        
         const updated = (await mockPrismaClient.comment.update({
           where: { id: req.params.commentId as string },
           data: { content: parsedData.data.content },
@@ -240,7 +218,6 @@ function createTestRouter(): Router {
     }
   );
 
-  // DELETE /comments/:commentId - Delete a comment
   router.delete(
     "/comments/:commentId",
     middleware,
@@ -250,7 +227,7 @@ function createTestRouter(): Router {
       }
 
       try {
-        // Find the comment and select only the author_id to check ownership
+        
         const found = await mockPrismaClient.comment.findUnique({
           where: { id: req.params.commentId as string },
           select: { author_id: true },
@@ -277,7 +254,6 @@ function createTestRouter(): Router {
 
 const commentsRouter = createTestRouter();
 
-// --- Jest Test Suite ---
 
 describe("Comments API Tests", () => {
   let app: Express;
@@ -285,10 +261,9 @@ describe("Comments API Tests", () => {
   beforeEach(() => {
     app = express();
     app.use(express.json());
-    // Mount the test router under /api
     app.use("/api", commentsRouter);
 
-    // Reset all mocks before each test
+
     jest.clearAllMocks();
   });
 
@@ -418,7 +393,7 @@ describe("Comments API Tests", () => {
       expect(response.status).toBe(200);
       expect(response.body.message).toBe("Get all comments");
       expect(response.body.allComments).toHaveLength(2);
-      // Checking only the mock call itself, as the argument structure is complex and checked in the router setup
+
       expect(mockPrismaClient.comment.findMany).toHaveBeenCalled();
     });
 
